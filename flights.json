@@ -1,0 +1,7 @@
+[
+  { "id": "AB101", "airline": "Sample Air", "from": "Vijayawada", "to": "Delhi", "hoursToDeparture": 6,  "basePrice": 7200, "floorPrice": 2800, "totalSeats": 180, "unsoldSeats": ["14A","14B","14C","15A","15B","15C","16D","16E"] },
+  { "id": "AB202", "airline": "Sample Air", "from": "Vijayawada", "to": "Hyderabad", "hoursToDeparture": 4,  "basePrice": 3800, "floorPrice": 1500, "totalSeats": 78,  "unsoldSeats": ["5A","5B","5C","6A","6B","6C"] },
+  { "id": "AB303", "airline": "Demo Wings", "from": "Mumbai", "to": "Bengaluru", "hoursToDeparture": 18, "basePrice": 5400, "floorPrice": 2200, "totalSeats": 180, "unsoldSeats": ["20A","20B","20C","21D","21E","21F","22A","22B"] },
+  { "id": "AB404", "airline": "Demo Wings", "from": "Chennai", "to": "Kolkata", "hoursToDeparture": 30, "basePrice": 6100, "floorPrice": 2600, "totalSeats": 180, "unsoldSeats": ["9A","9B","10C","10D"] },
+  { "id": "AB505", "airline": "Sample Air", "from": "Delhi", "to": "Lucknow", "hoursToDeparture": 3,  "basePrice": 3200, "floorPrice": 1200, "totalSeats": 78,  "unsoldSeats": ["3A","3B","3C","3D","4A","4B"] }
+]

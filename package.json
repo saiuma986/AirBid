@@ -1,0 +1,9 @@
+{
+  "name": "airbid",
+  "version": "1.0.0",
+  "description": "Airbid: sell unsold airline seats at affordable last-minute prices (prototype with simulated data)",
+  "main": "server.js",
+  "scripts": { "start": "node server.js", "test": "node --test test/pricing.test.js test/booking.test.js" },
+  "engines": { "node": ">=18" },
+  "license": "MIT"
+}

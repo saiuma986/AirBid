@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Airbid</title>
+<style>
+  :root { --ink:#16222E; --muted:#5B6B79; --paper:#F5F8FA; --card:#fff; --line:#D5E0E7; --sky:#E3F0F6; --accent:#0B6E8A; --accent-ink:#fff; --good:#1F7A46; --bad:#B3261E; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:"Segoe UI",system-ui,-apple-system,Roboto,sans-serif; color:var(--ink); background:var(--paper); line-height:1.5; }
+  header { padding:28px 24px 8px; max-width:1100px; margin:0 auto; }
+  h1 { margin:0; font-size:2rem; letter-spacing:-.02em; }
+  header p { margin:4px 0 0; color:var(--muted); max-width:60ch; }
+  main { max-width:1100px; margin:0 auto; padding:16px 24px 48px; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.1fr); gap:24px; align-items:start; }
+  @media (max-width:820px) { main { grid-template-columns:1fr; } }
+  h2 { font-size:1.05rem; margin:0 0 12px; }
+  .panel { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px; }
+  .flight { display:block; width:100%; text-align:left; font:inherit; color:inherit; background:var(--card); border:1.5px solid var(--line); border-radius:10px; padding:14px 16px; margin-bottom:10px; cursor:pointer; }
+  .flight:hover { border-color:var(--accent); }
+  .flight[aria-pressed="true"] { border-color:var(--accent); background:var(--sky); }
+  .route { font-weight:600; font-size:1.05rem; }
+  .meta { color:var(--muted); font-size:.9rem; }
+  .row { display:flex; justify-content:space-between; align-items:baseline; gap:12px; }
+  .price { color:var(--good); font-weight:700; font-size:1.15rem; }
+  .was { color:var(--muted); text-decoration:line-through; font-size:.9rem; margin-left:6px; }
+  fieldset { border:0; padding:0; margin:0 0 18px; }
+  legend, label.lbl { font-weight:600; font-size:.92rem; margin-bottom:8px; display:block; padding:0; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; }
+  .chip { position:relative; }
+  .chip input { position:absolute; opacity:0; inset:0; cursor:pointer; margin:0; }
+  .chip span { display:inline-block; padding:8px 14px; border:1.5px solid var(--line); border-radius:999px; background:#fff; font-size:.92rem; min-width:56px; text-align:center; }
+  .chip input:checked + span { background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+  .chip input:focus-visible + span { outline:3px solid #7FC1D6; outline-offset:2px; }
+  input[type=text], input[type=number] { width:100%; font:inherit; padding:10px 12px; border:1.5px solid var(--line); border-radius:8px; }
+  input[type=text]:focus, input[type=number]:focus { outline:3px solid #7FC1D6; border-color:var(--accent); }
+  .hint { color:var(--muted); font-size:.85rem; margin-top:6px; }
+  .total { display:flex; justify-content:space-between; align-items:baseline; padding:14px 0; border-top:1px solid var(--line); margin-top:6px; }
+  .total strong { font-size:1.4rem; }
+  button.go { width:100%; font:inherit; font-weight:600; padding:12px; background:var(--accent); color:var(--accent-ink); border:0; border-radius:10px; cursor:pointer; }
+  button.go:hover { background:#095a72; }
+  button.go:disabled { background:#9DB8C2; cursor:not-allowed; }
+  button:focus-visible { outline:3px solid #7FC1D6; outline-offset:2px; }
+  .msg { margin-top:12px; padding:10px 12px; border-radius:8px; font-size:.92rem; }
+  .msg.err { background:#FBEAE9; color:var(--bad); }
+  .ticket { background:var(--sky); border:1.5px dashed var(--accent); border-radius:12px; padding:18px; }
+  .ticket h3 { margin:0 0 6px; }
+  .empty { color:var(--muted); padding:24px 4px; }
+  .note { color:var(--muted); font-size:.82rem; max-width:1100px; margin:0 auto; padding:0 24px 32px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Airbid</h1>
+  <p>Unsold seats on flights leaving soon, at lower prices. Pick a flight, choose your seats, then buy at the listed price or place a bid.</p>
+</header>
+<main>
+  <section aria-labelledby="fl">
+    <h2 id="fl">1. Choose a flight</h2>
+    <div id="flights"></div>
+  </section>
+  <section class="panel" aria-labelledby="bk">
+    <h2 id="bk">2. Select seats and book</h2>
+    <div id="booking"><p class="empty">Select a flight to see its available seats.</p></div>
+  </section>
+</main>
+<p class="note">Prototype with simulated flights and mock payment. No real tickets are issued.</p>
+
+<script>
+const CATS = { general: 'General', student: 'Student', senior: 'Senior citizen', urgent: 'Urgent travel' };
+const inr = (n) => '₹' + Number(n).toLocaleString('en-IN');
+const state = { flights: [], flightId: null, seats: [], category: 'general', mode: 'buy', ticket: null, error: '' };
+
+async function load() { state.flights = await (await fetch('/api/flights')).json(); render(); }
+const current = () => state.flights.find((f) => f.id === state.flightId);
+const unitPrice = () => current().prices[state.category];
+
+function renderFlights() {
+  const box = document.getElementById('flights');
+  box.innerHTML = '';
+  state.flights.forEach((f) => {
+    const b = document.createElement('button');
+    b.className = 'flight';
+    b.type = 'button';
+    b.setAttribute('aria-pressed', f.id === state.flightId);
+    b.innerHTML = `<div class="row"><span class="route">${f.from} to ${f.to}</span><span><span class="price">${inr(f.prices.general)}</span><span class="was">${inr(f.basePrice)}</span></span></div>
+      <div class="meta">${f.airline} · ${f.id} · departs in ${f.hoursToDeparture} hours · ${f.unsoldSeats.length} seats left</div>`;
+    b.onclick = () => { state.flightId = f.id; state.seats = []; state.ticket = null; state.error = ''; render(); };
+    box.appendChild(b);
+  });
+}
+
+function renderBooking() {
+  const box = document.getElementById('booking');
+  const f = current();
+  if (!f) { box.innerHTML = '<p class="empty">Select a flight to see its available seats.</p>'; return; }
+  if (state.ticket) {
+    const t = state.ticket;
+    box.innerHTML = `<div class="ticket"><h3>Booked. Your reference is ${t.pnr}</h3>
+      <p>${t.name}, ${f.from} to ${f.to}, flight ${f.id}<br>Seats: ${t.seats.join(', ')}<br>Paid: <strong>${inr(t.total)}</strong> (${inr(t.perSeat)} per seat)</p></div>
+      <button class="go" style="margin-top:14px" id="again">Book another seat</button>`;
+    document.getElementById('again').onclick = () => { state.ticket = null; state.seats = []; load(); };
+    return;
+  }
+  const price = unitPrice();
+  box.innerHTML = `
+    <fieldset><legend>Available seats</legend><div class="chips" id="seats"></div>
+      <p class="hint">${f.unsoldSeats.length} unsold seats. Select one or more.</p></fieldset>
+    <fieldset><legend>Traveller type</legend><div class="chips" id="cats"></div>
+      <p class="hint">Students, senior citizens and urgent travellers get an extra 10% off. Verified in the real product; not checked in this demo.</p></fieldset>
+    <fieldset><legend>How do you want to book?</legend><div class="chips" id="modes"></div></fieldset>
+    <div id="bidbox"></div>
+    <label class="lbl" for="name">Passenger name</label>
+    <input type="text" id="name" autocomplete="name" placeholder="As on your ID">
+    <div class="total"><span>Total for ${state.seats.length || 0} seat${state.seats.length === 1 ? '' : 's'}</span><strong id="tot">${inr(price * state.seats.length)}</strong></div>
+    <button class="go" id="confirm" ${state.seats.length ? '' : 'disabled'}>${state.mode === 'bid' ? 'Place bid and book' : 'Pay and book'}</button>
+    <div id="err"></div>`;
+  chips('seats', f.unsoldSeats, (s) => state.seats.includes(s), (s, on) => { state.seats = on ? [...state.seats, s] : state.seats.filter((x) => x !== s); renderBooking(); }, 'checkbox');
+  chips('cats', Object.keys(CATS), (c) => c === state.category, (c) => { state.category = c; renderBooking(); }, 'radio', (c) => CATS[c]);
+  chips('modes', ['buy', 'bid'], (m) => m === state.mode, (m) => { state.mode = m; renderBooking(); }, 'radio', (m) => (m === 'buy' ? 'Buy at ' + inr(price) : 'Place a bid'));
+  if (state.mode === 'bid') {
+    document.getElementById('bidbox').innerHTML = `<label class="lbl" for="bid">Your bid per seat (₹)</label>
+      <input type="number" id="bid" min="1" step="10" value="${Math.round(price * 0.9 / 10) * 10}"><p class="hint">Bids of at least 85% of the listed price are accepted. You pay the lower of your bid and the listed price.</p>`;
+  }
+  if (state.error) document.getElementById('err').innerHTML = `<div class="msg err" role="alert">${state.error}</div>`;
+  document.getElementById('confirm').onclick = confirmBooking;
+}
+
+function chips(id, items, isOn, onChange, type, label = (x) => x) {
+  const box = document.getElementById(id);
+  items.forEach((it) => {
+    const l = document.createElement('label');
+    l.className = 'chip';
+    l.innerHTML = `<input type="${type}" name="${id}" ${isOn(it) ? 'checked' : ''}><span>${label(it)}</span>`;
+    l.querySelector('input').onchange = (e) => onChange(it, e.target.checked);
+    box.appendChild(l);
+  });
+}
+
+async function confirmBooking() {
+  const f = current();
+  const body = { flightId: f.id, seats: state.seats, category: state.category, mode: state.mode, name: document.getElementById('name').value };
+  if (state.mode === 'bid') body.bid = Number(document.getElementById('bid').value);
+  const res = await fetch('/api/book', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const data = await res.json();
+  if (!res.ok) { state.error = data.error; if (res.status === 409) { await refresh(); } return renderBooking(); }
+  state.error = ''; state.ticket = data; await refresh(); render();
+}
+async function refresh() { state.flights = await (await fetch('/api/flights')).json(); state.seats = state.seats.filter((s) => current().unsoldSeats.includes(s)); }
+function render() { renderFlights(); renderBooking(); }
+load();
+</script>
+</body>
+</html>
